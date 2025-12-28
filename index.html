@@ -108,9 +108,10 @@
         }
 
         .txt-green {
-            color: #2E7D32; /* 深綠色 */
-            /* 增加一點白色光暈，確保在全黑背景上"深綠色"能被看見 */
-            text-shadow: 0 0 2px rgba(255,255,255,0.3);
+            /* 修改處：將顏色改為更亮的亮綠色 */
+            color: #00E676; 
+            /* 增加一點綠色螢光效果 */
+            text-shadow: 0 0 10px rgba(0, 230, 118, 0.4);
         }
 
         /* --- 啟動畫面 (Start Overlay) --- */
@@ -126,7 +127,7 @@
         /* 啟動畫面的品牌文字區塊 */
         #start-brand-text {
             margin-top: 40px;
-            font-size: 2.8rem; /* 字體加大 */
+            font-size: 2.8rem;
             font-weight: 900;
             letter-spacing: 1px;
             line-height: 1.5;
@@ -190,7 +191,6 @@
             #device-hint { font-size: 1.8rem; padding: 15px 30px; margin-bottom: 40px; }
             #start-btn { font-size: 2.5rem; padding: 20px 60px; width: 80%; }
             
-            /* 手機版啟動畫面文字大小調整 */
             #start-brand-text { font-size: 2rem; margin-top: 50px; }
         }
 
@@ -218,7 +218,8 @@
         <div id="start-brand-text">
             <span class="txt-gold">Ace English</span>
             <span class="txt-white">x</span>
-            <br class="mobile-break"> <span class="txt-green">翊華教育製作</span>
+            <br class="mobile-break"> 
+            <span class="txt-green">翊華教育製作</span>
         </div>
     </div>
 
