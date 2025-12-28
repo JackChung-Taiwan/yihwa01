@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Magic Grab Game - Golden Feedback</title>
+    <style>
+        /* --- 樣式設定 --- */
+        body {
+            margin: 0; padding: 0;
+            background-color: #000;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            color: white;
+            user-select: none;
+            touch-action: none;
+        }
+
+        #container {
+            position: relative;
+            width: 100vw; height: 100vh;
+            display: flex;
+            justify-content: center; align-items: center;
+            background: radial-gradient(circle at center, #2b2b2b 0%, #000000 100%);
+        }
+
+        #input_video { display: none; }
+
+        canvas {
+            position: absolute;
+            left: 0; top: 0;
+            width: 100%; height: 100%;
+        }
+
+        #ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 10;
+        }
+
+        /* --- 頂部區域 --- */
+        #top-bar {
+            position: absolute; top: 20px; left: 0; width: 100%;
+            text-align: center;
+            pointer-events: auto; 
+        }
+
+        #game-title {
+            font-size: 2.5rem; font-weight: bold; color: #FFD740; 
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8); letter-spacing: 1px; margin-bottom: 10px;
+            pointer-events: none;
+        }
+
+        #info-panel {
+            display: flex; justify-content: center; gap: 20px;
+            pointer-events: none;
+        }
+
+        .info-box {
+            background: rgba(255, 255, 255, 0.9); color: #000;
+            padding: 8px 25px; border-radius: 20px;
+            font-size: 1.5rem; font-weight: bold;
+            display: inline-block; border: 2px solid #333; box-shadow: 0 4px 0 #ccc;
+            min-width: 140px; 
+        }
+
+        .time-stopped {
+            background: #FFEB3B !important;
+            color: #D50000 !important;
+            border-color: #D50000 !important;
+            transform: scale(1.1);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        /* 題目區顯示喇叭 */
+        #target-word {
+            font-size: 5rem; font-weight: 900; color: #FFEB3B;
+            text-shadow: 3px 3px 0px #000; margin-top: 15px; 
+            transition: transform 0.1s;
+            cursor: pointer; 
+        }
+        #target-word:active {
+            transform: scale(0.9); 
+            color: #FFF;
+        }
+
+        /* --- 頁尾區域 (遊戲中) --- */
+        #footer-bar {
+            position: absolute; bottom: 20px; left: 0; width: 100%;
+            text-align: center; z-index: 20;
+            filter: drop-shadow(2px 2px 4px rgba(0,0,0,1.0));
+            padding-bottom: 15px;
+        }
+
+        #footer-text {
+            font-size: 1.8rem;
+            font-weight: 800;
+            letter-spacing: 1px;
+        }
+
+        /* 通用文字顏色樣式 */
+        .txt-gold {
+            color: #FFD700; /* 黃金色 */
+        }
+        
+        .txt-white {
+            color: #FFFFFF;
+            margin: 0 8px; font-weight: 300;
+        }
+
+        .txt-green {
+            color: #2E7D32; /* 深綠色 */
+            /* 增加一點白色光暈，確保在全黑背景上"深綠色"能被看見 */
+            text-shadow: 0 0 2px rgba(255,255,255,0.3);
+        }
+
+        /* --- 啟動畫面 (Start Overlay) --- */
+        #start-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #111; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 100;
+            padding: 20px; text-align: center;
+        }
+
+        #start-title { color: white; margin-bottom: 20px; font-size: 3rem; text-shadow: 0 0 10px #FFD700; }
+        
+        /* 啟動畫面的品牌文字區塊 */
+        #start-brand-text {
+            margin-top: 40px;
+            font-size: 2.8rem; /* 字體加大 */
+            font-weight: 900;
+            letter-spacing: 1px;
+            line-height: 1.5;
+        }
+
+        #device-hint {
+            color: #4fc3f7; font-size: 1.5rem; margin-bottom: 30px; 
+            background: rgba(0,0,0,0.5); padding: 10px 20px; border-radius: 10px;
+            border: 1px solid #4fc3f7;
+        }
+
+        button {
+            font-size: 2rem; padding: 15px 40px;
+            background: #FF9800; color: white; border: none; border-radius: 10px;
+            cursor: pointer; border-bottom: 5px solid #E65100;
+            transition: transform 0.1s;
+        }
+        button:active { transform: translateY(3px); border-bottom: 2px solid #E65100; }
+        button:disabled { background: #555; border-bottom: 5px solid #333; cursor: wait; }
+
+        #feedback-text {
+            position: absolute; top: 40%; left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 6rem; font-weight: bold; text-shadow: 4px 4px 0 #000;
+            opacity: 0; transition: 0.2s; z-index: 30; pointer-events: none; white-space: nowrap;
+        }
+        .pop { opacity: 1 !important; transform: translate(-50%, -50%) scale(1.0) !important; }
+
+        /* 勝利畫面 */
+        #victory-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: none; flex-direction: column;
+            justify-content: center; align-items: center;
+            z-index: 50; background: rgba(0,0,0,0.9); animation: fadeIn 1s;
+        }
+        
+        #victory-emoji {
+            font-size: 10rem; animation: bounceIn 1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            text-shadow: 0 0 50px rgba(255, 235, 59, 0.8);
+        }
+        #victory-text {
+            font-size: 4rem; font-weight: 900; color: #FFF; margin-top: 10px;
+            text-shadow: 4px 4px 0 #FF9800; animation: slideUp 1s; text-align: center;
+        }
+        #victory-time {
+            font-size: 2.5rem; color: #76FF03; margin-top: 10px;
+            text-shadow: 2px 2px 0 #000; font-weight: bold;
+        }
+
+        /* --- 📱 手機版專用調整 --- */
+        @media (max-width: 768px) {
+            #game-title { font-size: 1.8rem; margin-top: 10px; }
+            .info-box { font-size: 1.2rem; padding: 5px 15px; min-width: 100px; }
+            #target-word { font-size: 4rem !important; }
+            
+            #footer-text { font-size: 1.2rem; }
+
+            #feedback-text { font-size: 3rem !important; }
+
+            #start-title { font-size: 3.5rem !important; margin-bottom: 30px; }
+            #device-hint { font-size: 1.8rem; padding: 15px 30px; margin-bottom: 40px; }
+            #start-btn { font-size: 2.5rem; padding: 20px 60px; width: 80%; }
+            
+            /* 手機版啟動畫面文字大小調整 */
+            #start-brand-text { font-size: 2rem; margin-top: 50px; }
+        }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes bounceIn { 
+            0% { transform: scale(0); opacity: 0; } 
+            60% { transform: scale(1.2); opacity: 1; } 
+            100% { transform: scale(1); } 
+        }
+        @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    </style>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+</head>
+<body>
+
+    <div id="start-overlay">
+        <h2 id="start-title">Magic Grab Game</h2>
+        <div id="device-hint">偵測裝置中...</div>
+        <button id="start-btn" disabled>Loading...</button>
+        
+        <div id="start-brand-text">
+            <span class="txt-gold">Ace English</span>
+            <span class="txt-white">x</span>
+            <br class="mobile-break"> <span class="txt-green">翊華教育製作</span>
+        </div>
+    </div>
+
+    <div id="victory-layer">
+        <div id="victory-emoji">👍</div>
+        <div id="victory-text">Good Job!</div>
+        <div id="victory-time">Time: 0.00s</div>
+        <button onclick="location.reload()" style="margin-top:30px; font-size: 1.5rem;">Play Again</button>
+    </div>
+
+    <div id="container">
+        <video id="input_video" playsinline></video>
+        <canvas id="output_canvas"></canvas>
+        
+        <div id="ui-layer">
+            <div id="top-bar">
+                <div id="game-title">Magic Grab Game</div>
+                <div id="info-panel">
+                    <div class="info-box" id="progress-display">
+                        <span id="progress-cnt">0</span> / 10
+                    </div>
+                    <div class="info-box" id="time-display">
+                        <span id="time-val">0.00</span>s
+                    </div>
+                </div>
+                <div id="target-word" onclick="replaySound()">Ready...</div>
+            </div>
+            <div id="feedback-text">Good!</div>
+            
+            <div id="footer-bar">
+                <div id="footer-text">
+                    <span class="txt-gold">Ace English</span><span class="txt-white">x</span><span class="txt-green">翊華教育製作</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    const deviceHintEl = document.getElementById('device-hint');
+    if (isMobile) {
+        deviceHintEl.innerHTML = "📱 Mobile Mode<br>手指按住圖案拖曳";
+        document.getElementById('input_video').style.display = 'none';
+    } else {
+        deviceHintEl.innerHTML = "💻 PC Mode<br>請允許攝影機，使用手勢隔空抓取";
+    }
+
+    const vocabulary = [
+        { word: "Car", emoji: "🚗", color: "#F44336" }, 
+        { word: "Taxi", emoji: "🚕", color: "#FFC107" }, 
+        { word: "Bus", emoji: "🚌", color: "#2196F3" }, 
+        { word: "Police Car", emoji: "🚓", color: "#3F51B5" }, 
+        { word: "Ambulance", emoji: "🚑", color: "#E91E63" }, 
+        { word: "Bicycle", emoji: "🚲", color: "#4CAF50" }, 
+        { word: "Motorcycle", emoji: "🏍️", color: "#FF5722" }, 
+        { word: "Train", emoji: "🚆", color: "#9C27B0" }, 
+        { word: "Airplane", emoji: "✈️", color: "#03A9F4" }, 
+        { word: "Rocket", emoji: "🚀", color: "#673AB7" }, 
+        { word: "Ship", emoji: "🚢", color: "#00BCD4" }, 
+        { word: "Helicopter", emoji: "🚁", color: "#8BC34A" },
+        { word: "Fire Truck", emoji: "🚒", color: "#FF4081" }, 
+        { word: "Scooter", emoji: "🛴", color: "#795548" }, 
+        { word: "Boat", emoji: "⛵", color: "#009688" } 
+    ];
+
+    const praises = ["Excellent!", "Awesome!", "Fantastic!", "Brilliant!", "Great Job!", "Perfect!", "Super!", "Wonderful!"];
+    const wrongs = ["Try Again", "Oops!", "Not that one", "Look carefully", "Oh no!", "Almost there!", "Don't give up!", "Not quite right"];
+    const victoryPraises = ["Mission Complete!", "You are a Master!", "Good Job!", "All Correct!", "Outstanding!", "You Did It!"];
+
+    const canvasElement = document.getElementById('output_canvas');
+    const canvasCtx = canvasElement.getContext('2d');
+    const videoElement = document.getElementById('input_video');
+    const victoryLayer = document.getElementById('victory-layer');
+    const victoryTextEl = document.getElementById('victory-text');
+    const timeValEl = document.getElementById('time-val');
+    const timeDisplayBox = document.getElementById('time-display');
+    const startBtn = document.getElementById('start-btn');
+    
+    let gameState = {
+        isPlaying: false, isGameOver: false, isTimerStopped: false,
+        correctCount: 0, maxQuestions: 10,
+        startTime: 0, finalTimeStr: "0.00", 
+        target: null, objects: [],
+        hand: { x: -1, y: -1, pinching: false }, 
+        grabbed: null, confetti: [] 
+    };
+
+    function resizeCanvas() {
+        canvasElement.width = window.innerWidth;
+        canvasElement.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas(); 
+
+    function speak(text) {
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel(); 
+            const u = new SpeechSynthesisUtterance(text);
+            u.lang = 'en-US'; u.rate = 1.0; u.pitch = 1.1; 
+            window.speechSynthesis.speak(u);
+        }
+    }
+
+    function replaySound() {
+        if (gameState.isPlaying && !gameState.isGameOver && gameState.target) {
+            speak(gameState.target.word);
+            const el = document.getElementById('target-word');
+            el.style.transform = "scale(1.2)";
+            setTimeout(() => el.style.transform = "scale(1)", 200);
+        }
+    }
+
+    function spawnObject(forcedTarget = null) {
+        let type;
+        if (forcedTarget) {
+            type = forcedTarget;
+        } else {
+            let counts = {};
+            gameState.objects.forEach(o => { counts[o.word] = (counts[o.word] || 0) + 1; });
+
+            let candidates = vocabulary.filter(v => {
+                let countOk = (counts[v.word] || 0) < 2;
+                let isNotTarget = true;
+                if (gameState.target) {
+                    isNotTarget = (v.word !== gameState.target.word);
+                }
+                return countOk && isNotTarget;
+            });
+
+            if (candidates.length === 0) candidates = vocabulary;
+            type = candidates[Math.floor(Math.random() * candidates.length)];
+        }
+
+        let baseSize = isMobile ? 0.18 : 0.20; 
+        let randomY = Math.random() * 0.45 + 0.25; 
+
+        gameState.objects.push({
+            word: type.word,
+            emoji: type.emoji,
+            color: type.color,
+            x: Math.random() * 0.8 + 0.1,
+            y: randomY, 
+            vx: (Math.random() - 0.5) * 0.002, 
+            vy: (Math.random() - 0.5) * 0.002,
+            size: baseSize,
+            createdAt: Date.now() 
+        });
+    }
+
+    function nextLevel() {
+        if (gameState.isGameOver) return;
+        document.getElementById('progress-cnt').innerText = gameState.correctCount;
+        if (gameState.correctCount >= gameState.maxQuestions) return;
+
+        let sortedObjects = [...gameState.objects].sort((a, b) => a.createdAt - b.createdAt);
+        let targetCandidate = null;
+
+        if (sortedObjects.length > 1) {
+            let validCandidates = sortedObjects.slice(0, sortedObjects.length - 1);
+            targetCandidate = validCandidates[Math.floor(Math.random() * validCandidates.length)];
+        } else if (sortedObjects.length === 1) {
+            targetCandidate = sortedObjects[0];
+        }
+
+        if (targetCandidate) {
+            gameState.target = vocabulary.find(v => v.word === targetCandidate.word);
+        } else {
+            gameState.target = vocabulary[Math.floor(Math.random() * vocabulary.length)];
+            spawnObject(gameState.target); 
+        }
+        
+        const targetEl = document.getElementById('target-word');
+        targetEl.innerText = "🔊"; 
+        targetEl.style.color = "#FFEB3B"; 
+        
+        speak(gameState.target.word);
+    }
+
+    function triggerVictory() {
+        gameState.isGameOver = true; gameState.isPlaying = false; 
+        document.getElementById('progress-cnt').innerText = gameState.maxQuestions;
+        timeValEl.innerText = gameState.finalTimeStr; 
+        document.getElementById('victory-time').innerText = `Time: ${gameState.finalTimeStr}s`; 
+        
+        const finalText = victoryPraises[Math.floor(Math.random() * victoryPraises.length)];
+        victoryTextEl.innerText = finalText;
+        victoryLayer.style.display = 'flex';
+        speak(finalText);
+
+        for(let i=0; i<100; i++) {
+            gameState.confetti.push({
+                x: Math.random() * canvasElement.width,
+                y: Math.random() * canvasElement.height - canvasElement.height,
+                color: `hsl(${Math.random()*360}, 100%, 50%)`,
+                size: Math.random() * 10 + 5,
+                speed: Math.random() * 5 + 2
+            });
+        }
+        requestAnimationFrame(victoryLoop);
+    }
+
+    function victoryLoop() {
+        if (!gameState.isGameOver) return;
+        canvasCtx.fillStyle = "#000";
+        canvasCtx.fillRect(0, 0, canvasElement.width, canvasElement.height);
+        gameState.confetti.forEach(c => {
+            c.y += c.speed;
+            if (c.y > canvasElement.height) c.y = -20;
+            canvasCtx.fillStyle = c.color;
+            canvasCtx.fillRect(c.x, c.y, c.size, c.size);
+        });
+        requestAnimationFrame(victoryLoop);
+    }
+
+    function showFeedback(isCorrect) {
+        const el = document.getElementById('feedback-text');
+        let text = isCorrect ? praises[Math.floor(Math.random() * praises.length)] : wrongs[Math.floor(Math.random() * wrongs.length)];
+        let color = isCorrect ? "#FFD700" : "#FF1744"; 
+        
+        el.innerText = text; el.style.color = color;
+        el.classList.add('pop'); speak(text); 
+        setTimeout(() => el.classList.remove('pop'), 1200);
+    }
+
+    function gameLoop() {
+        if (gameState.isPlaying && !gameState.isGameOver) {
+            if (!gameState.isTimerStopped) {
+                const now = Date.now();
+                const elapsed = (now - gameState.startTime) / 1000;
+                timeValEl.innerText = elapsed.toFixed(2);
+            }
+            
+            if (gameState.objects.length < 10) {
+                spawnObject();
+            }
+
+            updatePhysics();
+            draw();
+        }
+        if (!gameState.isGameOver) requestAnimationFrame(gameLoop);
+    }
+
+    function updatePhysics() {
+        gameState.objects.forEach(obj => {
+            if (obj !== gameState.grabbed) {
+                obj.x += obj.vx; obj.y += obj.vy;
+                
+                if(obj.x < 0.05 || obj.x > 0.95) obj.vx *= -1;
+                if(obj.y < 0.25) { obj.y = 0.25; obj.vy = Math.abs(obj.vy); }
+                if(obj.y > 0.72) { obj.y = 0.72; obj.vy = -Math.abs(obj.vy); }
+            }
+        });
+
+        if (gameState.hand.pinching) {
+            if (!gameState.grabbed) {
+                let closest = null;
+                let grabRadius = 0.09; 
+                let minDist = grabRadius; 
+                const aspect = canvasElement.width / canvasElement.height;
+
+                gameState.objects.forEach(obj => {
+                    const dx = obj.x - gameState.hand.x;
+                    const dy = (obj.y - gameState.hand.y) / aspect; 
+                    const dist = Math.sqrt(dx*dx + dy*dy);
+                    if (dist < minDist) { minDist = dist; closest = obj; }
+                });
+                if (closest) gameState.grabbed = closest;
+            } else {
+                gameState.grabbed.x += (gameState.hand.x - gameState.grabbed.x) * 0.3;
+                gameState.grabbed.y += (gameState.hand.y - gameState.grabbed.y) * 0.3;
+
+                const distToTableCenter = Math.sqrt(
+                    Math.pow(gameState.grabbed.x - 0.5, 2) + 
+                    Math.pow(gameState.grabbed.y - 0.9, 2)
+                );
+
+                if (distToTableCenter < 0.15) { 
+                    if (gameState.grabbed.word === gameState.target.word) {
+                        gameState.correctCount++; 
+                        document.getElementById('progress-cnt').innerText = gameState.correctCount;
+                        showFeedback(true); 
+                        gameState.objects = gameState.objects.filter(o => o !== gameState.grabbed);
+                        gameState.grabbed = null;
+                        
+                        if (gameState.correctCount >= gameState.maxQuestions) {
+                            gameState.isTimerStopped = true; 
+                            const now = Date.now();
+                            const elapsed = (now - gameState.startTime) / 1000;
+                            gameState.finalTimeStr = elapsed.toFixed(2);
+                            timeValEl.innerText = gameState.finalTimeStr; 
+                            timeDisplayBox.classList.add('time-stopped');
+                            setTimeout(triggerVictory, 1500); 
+                        } else {
+                            setTimeout(nextLevel, 1500);
+                        }
+                    } else {
+                        showFeedback(false); 
+                        gameState.grabbed.y -= 0.3; 
+                        gameState.grabbed = null;
+                    }
+                }
+            }
+        } else {
+            gameState.grabbed = null;
+        }
+    }
+
+    function draw() {
+        const w = canvasElement.width;
+        const h = canvasElement.height;
+
+        if (!isMobile && videoElement.readyState >= 2) {
+            canvasCtx.save(); canvasCtx.scale(-1, 1); 
+            canvasCtx.drawImage(videoElement, -w, 0, w, h); 
+            canvasCtx.restore();
+            canvasCtx.fillStyle = "rgba(30, 30, 30, 0.7)"; 
+            canvasCtx.fillRect(0, 0, w, h);
+        } else {
+            canvasCtx.clearRect(0,0,w,h); 
+        }
+
+        const tableH = h * 0.11; 
+        const tableY = h - tableH;
+
+        canvasCtx.beginPath();
+        canvasCtx.moveTo(w * 0.3, tableY);
+        canvasCtx.lineTo(w * 0.7, tableY);
+        canvasCtx.lineTo(w, h);    
+        canvasCtx.lineTo(0, h);    
+        canvasCtx.closePath();
+        
+        canvasCtx.fillStyle = "rgba(141, 110, 99, 0.9)"; 
+        canvasCtx.fill();
+        canvasCtx.strokeStyle = "#5D4037";
+        canvasCtx.lineWidth = 5;
+        canvasCtx.stroke();
+
+        if (gameState.grabbed) {
+            canvasCtx.beginPath();
+            canvasCtx.moveTo(gameState.hand.x * w, gameState.hand.y * h);
+            canvasCtx.lineTo(gameState.grabbed.x * w, gameState.grabbed.y * h);
+            canvasCtx.strokeStyle = "rgba(255,255,255,0.6)"; 
+            canvasCtx.lineWidth = 3;
+            canvasCtx.stroke();
+        }
+
+        gameState.objects.forEach(obj => {
+            const x = obj.x * w;
+            const y = obj.y * h;
+            const minDim = Math.min(w, h);
+            const r = (obj.size * minDim) / 2;
+
+            canvasCtx.fillStyle = obj.color;
+            canvasCtx.beginPath();
+            canvasCtx.arc(x, y, r, 0, 2*Math.PI);
+            canvasCtx.fill();
+            canvasCtx.lineWidth = 3;
+            canvasCtx.strokeStyle = "white";
+            canvasCtx.stroke();
+
+            let fontSizeMultiplier = isMobile ? 1.2 : 0.8;
+            canvasCtx.font = `${r * fontSizeMultiplier}px Arial`;
+            
+            canvasCtx.textAlign = "center";
+            canvasCtx.textBaseline = "middle";
+            canvasCtx.fillStyle = "white";
+            canvasCtx.fillText(obj.emoji, x, y);
+
+            if (obj === gameState.grabbed) {
+                canvasCtx.fillStyle = "#FFF";
+                canvasCtx.font = `bold ${r * 1.5}px Arial`; 
+                canvasCtx.lineWidth = 4; 
+                canvasCtx.strokeStyle = "black";
+                canvasCtx.strokeText(obj.word, x, y - r - 20);
+                canvasCtx.fillText(obj.word, x, y - r - 20);
+            }
+        });
+
+        if (gameState.hand.x !== -1) {
+            const hx = gameState.hand.x * w;
+            const hy = gameState.hand.y * h;
+            
+            canvasCtx.beginPath();
+            canvasCtx.arc(hx, hy, isMobile ? 25 : 12, 0, 2*Math.PI); 
+            canvasCtx.fillStyle = gameState.hand.pinching ? "#FF5252" : "#448AFF"; 
+            canvasCtx.fill();
+            canvasCtx.strokeStyle = "white"; canvasCtx.lineWidth = 2; canvasCtx.stroke();
+            
+            canvasCtx.beginPath();
+            canvasCtx.arc(hx, hy, isMobile ? 45 : 30, 0, 2*Math.PI); 
+            canvasCtx.strokeStyle = "rgba(255,255,255,0.5)"; canvasCtx.lineWidth = 2; canvasCtx.stroke();
+        }
+    }
+
+    if (isMobile) {
+        canvasElement.addEventListener('touchstart', (e) => { e.preventDefault(); const t = e.touches[0]; gameState.hand.x = t.clientX/window.innerWidth; gameState.hand.y = t.clientY/window.innerHeight; gameState.hand.pinching = true; }, {passive:false});
+        canvasElement.addEventListener('touchmove', (e) => { e.preventDefault(); const t = e.touches[0]; gameState.hand.x = t.clientX/window.innerWidth; gameState.hand.y = t.clientY/window.innerHeight; gameState.hand.pinching = true; }, {passive:false});
+        canvasElement.addEventListener('touchend', (e) => { e.preventDefault(); gameState.hand.pinching = false; gameState.hand.x = -1; });
+        startBtn.innerText = "點擊開始遊戲"; startBtn.disabled = false;
+        startBtn.onclick = () => { document.getElementById('start-overlay').style.display = 'none'; gameState.isPlaying = true; gameState.startTime = Date.now(); for(let i=0; i<8; i++) spawnObject(); nextLevel(); gameLoop(); };
+    } else {
+        const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
+        hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+        hands.onResults(results => {
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const lm = results.multiHandLandmarks[0];
+                const iTip = lm[8]; const tTip = lm[4];
+                const dist = Math.sqrt(Math.pow(iTip.x - tTip.x, 2) + Math.pow(iTip.y - tTip.y, 2));
+                gameState.hand.x = 1 - (iTip.x + tTip.x) / 2; 
+                gameState.hand.y = (iTip.y + tTip.y) / 2;
+                gameState.hand.pinching = dist < 0.08;
+            } else { gameState.hand.pinching = false; }
+        });
+        const camera = new Camera(videoElement, { onFrame: async () => { await hands.send({image: videoElement}); }, width: 1280, height: 720 });
+        camera.start().then(() => {
+            startBtn.innerText = "點擊開始遊戲"; startBtn.disabled = false;
+            startBtn.onclick = () => { document.getElementById('start-overlay').style.display = 'none'; gameState.isPlaying = true; gameState.startTime = Date.now(); for(let i=0; i<8; i++) spawnObject(); nextLevel(); gameLoop(); };
+        });
+    }
+</script>
+</body>
+</html>
